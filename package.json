@@ -1,0 +1,23 @@
+{
+  "name": "caching-guide-example",
+  "version": "1.0.0",
+  "description": "This repository is intended for use alongside the Harper Learn [\"Developers / Caching with Harper\"](https//docs.harperdb.io/learn/developers/caching-with-harper) guide.",
+  "homepage": "https://github.com/HarperFast/caching-guide-example#readme",
+  "bugs": {
+    "url": "https://github.com/HarperFast/caching-guide-example/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HarperFast/caching-guide-example.git"
+  },
+  "license": "Apache-2.0",
+  "author": "HarperDB Inc.",
+  "type": "module",
+  "main": "resources.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "harper": "^5.0.11"
+  }
+}
