@@ -1,3 +1,5 @@
+import { Resource, tables } from 'harper';
+
 class JokeAPI extends Resource {
 	async get() {
 		const id = this.getId();
