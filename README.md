@@ -74,3 +74,40 @@ curl localhost:9926/ProductCache/1
 Harper coalesces concurrent misses for the same id into one upstream request, and
 serves all subsequent reads from local storage until the entry's TTL expires. That
 is the entire "land": no schema migration upstream, no rewrite, just faster reads.
+
+---
+
+## Step 2 — Query your cache
+
+Read-through caching stores one record per request. To make the *whole* catalog
+queryable, warm it once from the upstream collection endpoint, then mark the
+fields you filter and sort on as `@indexed`.
+
+```graphql
+# schema.graphql — index the fields we query on
+category: String @indexed
+price: Float @indexed
+rating: Float @indexed
+```
+
+```js
+// resources.js — warm the cache from the upstream collection
+export class Catalog extends Resource {
+	async post() {
+		const { products } = await (await fetch('https://dummyjson.com/products?limit=0')).json();
+		for (const product of products) await tables.ProductCache.put(toProduct(product));
+		return { loaded: products.length };
+	}
+}
+```
+
+```bash
+curl -X POST localhost:9926/Catalog/        # warm the cache
+
+# Now query it: filter, sort, paginate, project, at the edge:
+curl 'localhost:9926/ProductCache/?price=le=50&sort(-rating)&limit(10)&select(id,title,price,rating)'
+```
+
+The cache is now a database. Harper's [REST query language](https://docs.harperdb.io)
+gives you FIQL filters (`=gt=`, `=le=`, `=ct=`), `sort()`, `limit()`, `select()`,
+and boolean grouping, over data whose origin API may have offered none of it.

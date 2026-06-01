@@ -51,6 +51,34 @@ class ProductAPI extends Resource {
 tables.ProductCache.sourcedFrom(ProductAPI);
 
 // Exporting the table class publishes its REST endpoints (e.g. /ProductCache/1).
-// Later steps add query, transform, relate, real-time, and vector capabilities
-// to this same class.
+// Later steps add transform, relate, real-time, and vector capabilities to this
+// same class.
 export class ProductCache extends tables.ProductCache {}
+
+/**
+ * Step 2 — Query your cache.
+ *
+ * Read-through caching populates one record per request. To make the *whole*
+ * catalog queryable, warm it once from the upstream collection endpoint. After
+ * this runs, the cache is a queryable table: filter, sort, and paginate it with
+ * Harper's REST query language — even though the origin API never exposed those
+ * capabilities.
+ *
+ *   POST /Catalog/      -> loads the full catalog into ProductCache
+ *   GET  /ProductCache/?price=le=50&sort(-rating)&limit(10)&select(title,price)
+ */
+const CATALOG_URL = `${UPSTREAM}?limit=0`;
+
+export class Catalog extends Resource {
+	async post() {
+		const response = await fetch(CATALOG_URL);
+		if (!response.ok) {
+			throw new Error(`Catalog fetch failed (${response.status})`);
+		}
+		const { products } = await response.json();
+		for (const product of products) {
+			await tables.ProductCache.put(toProduct(product));
+		}
+		return { loaded: products.length };
+	}
+}
