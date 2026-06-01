@@ -1,5 +1,17 @@
-type JokeCache @table(expiration: 60) {
-	id: ID @primaryKey
-	setup: String
-	punchline: String
+# Step 1: cache a structured JSON API.
+#
+# ProductCache mirrors records from an upstream products API. `expiration`
+# sets a 1-hour TTL: Harper serves reads from the cache and lazily refetches
+# an entry from the source once it goes stale.
+type ProductCache @table(expiration: 3600) {
+	id: Int @primaryKey
+	title: String
+	description: String
+	category: String
+	brand: String
+	price: Float
+	discountPercentage: Float
+	rating: Float
+	stock: Int
+	tags: [String]
 }
