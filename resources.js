@@ -1,4 +1,5 @@
 import { Resource, tables } from 'harper';
+import { embed, EMBEDDINGS_ENABLED } from './embeddings.js';
 
 /**
  * Step 1 — Cache a structured JSON API (the "land").
@@ -95,7 +96,13 @@ export class Catalog extends Resource {
 		}
 		const { products } = await response.json();
 		for (const product of products) {
-			await tables.ProductCache.put(toProduct(product));
+			const record = toProduct(product);
+			// Step 6 — embed each product so it can be found by meaning, not just
+			// keywords. Skipped automatically when no provider is configured.
+			if (EMBEDDINGS_ENABLED) {
+				record.embedding = await embed(`${record.title}. ${record.description}`);
+			}
+			await tables.ProductCache.put(record);
 		}
 
 		// Step 4 — warm the category resource so products can be joined to it.
@@ -105,5 +112,32 @@ export class Catalog extends Resource {
 		}
 
 		return { loaded: products.length, categories: categories.length };
+	}
+}
+
+/**
+ * Step 6 — Vector (semantic search over your cache).
+ *
+ * The same cached records, now searchable by meaning. Embed the query, run an
+ * HNSW nearest-neighbor search over the products, and return the closest matches
+ * with their similarity `$distance`. No separate vector database required.
+ *
+ *   POST /ProductSearch/   {"query": "something to keep my drink cold", "limit": 5}
+ */
+export class ProductSearch extends Resource {
+	async post(data) {
+		const body = await data;
+		if (!body?.query) {
+			throw new Error('Provide {"query": "..."}');
+		}
+		if (!EMBEDDINGS_ENABLED) {
+			throw new Error('Set EMBEDDING_PROVIDER (openai|ollama) and re-warm the catalog to enable vector search');
+		}
+		const target = await embed(body.query);
+		return tables.ProductCache.search({
+			select: ['id', 'title', 'category', 'price', '$distance'],
+			sort: { attribute: 'embedding', target },
+			limit: body.limit ?? 5,
+		});
 	}
 }

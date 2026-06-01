@@ -201,3 +201,61 @@ curl -X POST localhost:9926/ProductCache/5 -d '{"action":"invalidate"}'
 
 REST for reads, the same model streamed live over WebSocket/MQTT/SSE: a
 combination very few platforms offer from a single resource definition.
+
+---
+
+## Step 6 — Vector (semantic search over your cache)
+
+The same cached records, now searchable by meaning. Add an HNSW vector index,
+embed each product during warm-up, and search with a natural-language query, with
+no separate vector database.
+
+This step needs an embedding provider. Copy `.env.example` to `.env` and set one:
+
+```bash
+EMBEDDING_PROVIDER=ollama        # local; or "openai" with OPENAI_API_KEY
+```
+
+```graphql
+# schema.graphql
+embedding: [Float] @indexed(type: "HNSW", distance: "cosine")
+```
+
+```js
+// resources.js
+export class ProductSearch extends Resource {
+	async post(data) {
+		const { query, limit = 5 } = await data;
+		const target = await embed(query);
+		return tables.ProductCache.search({
+			select: ['id', 'title', 'price', '$distance'],
+			sort: { attribute: 'embedding', target },
+			limit,
+		});
+	}
+}
+```
+
+```bash
+curl -X POST localhost:9926/Catalog/        # warms + embeds
+curl -X POST localhost:9926/ProductSearch/ -d '{"query":"something to keep my drink cold"}'
+# -> tumblers, coolers, water bottles, matched by meaning, ranked by $distance
+```
+
+Generating the embeddings is the one piece that currently reaches outside the
+database: `embed()` calls an external provider (OpenAI, a local Ollama model) to
+turn text into vectors, and Harper stores and searches them. That gap is closing.
+Built-in embedding generation on Fabric is coming
+([harper#510](https://github.com/HarperFast/harper/issues/510)), which moves the
+embedding step in-process alongside the storage and search.
+
+---
+
+## Where you landed
+
+You started with a one-method read-through cache and finished with a queryable,
+relational, real-time, semantically-searchable data layer, all over data that
+still lives in someone else's API. That is the whole pitch: **the easy "land" of
+an API cache and the deep "expand" of a database are the same system.** Each step
+above was a few lines, and none required touching the origin.
+
