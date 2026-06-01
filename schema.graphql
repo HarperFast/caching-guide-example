@@ -4,6 +4,7 @@
 #
 # Step 2 adds `@indexed` to the fields we filter and sort on.
 # Step 3 adds `@computed` fields that reshape upstream data at read time.
+# Step 4 adds a `@relationship` so two cached resources can be joined.
 type ProductCache @table(expiration: 3600) {
 	id: Int @primaryKey
 	title: String
@@ -19,4 +20,14 @@ type ProductCache @table(expiration: 3600) {
 	# Step 3 — derived fields, computed on read.
 	salePrice: Float @computed(from: "price - price * (discountPercentage || 0) / 100")
 	inStock: Boolean @computed(from: "stock > 0")
+
+	# Step 4 — join to the category resource by its slug.
+	categoryInfo: CategoryCache @relationship(from: "category")
+}
+
+# A second cached resource. Products reference it by `category` (the slug).
+type CategoryCache @table(expiration: 86400) {
+	slug: ID @primaryKey
+	name: String
+	url: String
 }

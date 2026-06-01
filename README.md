@@ -134,3 +134,35 @@ curl 'localhost:9926/ProductCache/1?select(title,price,salePrice,inStock)'
 This is a backend-for-frontend in two lines: the client gets exactly the shape it
 needs. For richer reshaping (renaming, nesting, merging multiple sources) extend
 the table class and override `get()`.
+
+---
+
+## Step 4 — Relate (join two cached APIs)
+
+Cache a second resource and link them with `@relationship`. Now you can embed
+related records and filter by related fields, a join across two independently
+cached upstreams.
+
+```graphql
+# schema.graphql
+type ProductCache @table(expiration: 3600) {
+	categoryInfo: CategoryCache @relationship(from: "category")
+}
+type CategoryCache @table(expiration: 86400) {
+	slug: ID @primaryKey
+	name: String
+}
+```
+
+```bash
+curl -X POST localhost:9926/Catalog/    # warms products *and* categories
+
+# Embed the related category (braces select the related fields):
+curl 'localhost:9926/ProductCache/1?select(title,categoryInfo{slug,name})'
+
+# Filter products by a related-category field (a join):
+curl 'localhost:9926/ProductCache/?categoryInfo.slug=beauty&limit(5)'
+```
+
+Normalize where it helps, keep low-latency reads, and let Harper resolve the
+relationship, with no N+1 round-trips to the origin.

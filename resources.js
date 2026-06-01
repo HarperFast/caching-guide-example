@@ -68,6 +68,7 @@ export class ProductCache extends tables.ProductCache {}
  *   GET  /ProductCache/?price=le=50&sort(-rating)&limit(10)&select(title,price)
  */
 const CATALOG_URL = `${UPSTREAM}?limit=0`;
+const CATEGORIES_URL = `${UPSTREAM}/categories`;
 
 export class Catalog extends Resource {
 	async post() {
@@ -79,6 +80,13 @@ export class Catalog extends Resource {
 		for (const product of products) {
 			await tables.ProductCache.put(toProduct(product));
 		}
-		return { loaded: products.length };
+
+		// Step 4 — warm the category resource so products can be joined to it.
+		const categories = await (await fetch(CATEGORIES_URL)).json();
+		for (const category of categories) {
+			await tables.CategoryCache.put(category);
+		}
+
+		return { loaded: products.length, categories: categories.length };
 	}
 }
