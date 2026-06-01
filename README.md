@@ -166,3 +166,38 @@ curl 'localhost:9926/ProductCache/?categoryInfo.slug=beauty&limit(5)'
 
 Normalize where it helps, keep low-latency reads, and let Harper resolve the
 relationship, with no N+1 round-trips to the origin.
+
+---
+
+## Step 5 — Stream (real-time + push invalidation)
+
+An exported table publishes a WebSocket/SSE endpoint at the same path as its REST
+endpoint, so you get live updates with no extra code. Pair that with **push
+invalidation** so the cache reflects upstream changes the moment they happen.
+
+```js
+// resources.js — drop a cached entry on demand; next read refetches
+static async post(target, data) {
+	const body = await data;
+	if (body?.action === 'invalidate') {
+		await this.invalidate(target);
+		return { status: 'invalidated' };
+	}
+}
+```
+
+Subscribe to a record and react to every change (Node 22+ / browser):
+
+```js
+const ws = new WebSocket('ws://localhost:9926/ProductCache/5');
+ws.onmessage = (e) => console.log('product 5 changed:', JSON.parse(e.data));
+// ...or SSE: fetch('/ProductCache/5', { headers: { Accept: 'text/event-stream' } })
+```
+
+```bash
+# Tell Harper the upstream changed; subscribers are notified, next read is fresh:
+curl -X POST localhost:9926/ProductCache/5 -d '{"action":"invalidate"}'
+```
+
+REST for reads, the same model streamed live over WebSocket/MQTT/SSE: a
+combination very few platforms offer from a single resource definition.

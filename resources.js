@@ -50,10 +50,27 @@ class ProductAPI extends Resource {
 // Wire the upstream source to the cache table.
 tables.ProductCache.sourcedFrom(ProductAPI);
 
-// Exporting the table class publishes its REST endpoints (e.g. /ProductCache/1).
-// Later steps add transform, relate, real-time, and vector capabilities to this
-// same class.
-export class ProductCache extends tables.ProductCache {}
+// Exporting the table class publishes its REST endpoints (e.g. /ProductCache/1)
+// AND a WebSocket/SSE endpoint at the same path — real-time streaming for free.
+export class ProductCache extends tables.ProductCache {
+	/**
+	 * Step 5 — push invalidation.
+	 *
+	 * When the upstream record changes, tell Harper to drop the cached entry;
+	 * the next read transparently refetches fresh data from the source. The
+	 * write also notifies any WebSocket/SSE subscribers to this record.
+	 *
+	 *   POST /ProductCache/5   {"action":"invalidate"}
+	 */
+	static async post(target, data) {
+		const body = await data;
+		if (body?.action === 'invalidate') {
+			await this.invalidate(target);
+			return { status: 'invalidated' };
+		}
+		throw new Error('Unsupported action; send {"action":"invalidate"}');
+	}
+}
 
 /**
  * Step 2 — Query your cache.
