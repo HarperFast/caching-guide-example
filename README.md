@@ -111,3 +111,26 @@ curl 'localhost:9926/ProductCache/?price=le=50&sort(-rating)&limit(10)&select(id
 The cache is now a database. Harper's [REST query language](https://docs.harperdb.io)
 gives you FIQL filters (`=gt=`, `=le=`, `=ct=`), `sort()`, `limit()`, `select()`,
 and boolean grouping, over data whose origin API may have offered none of it.
+
+---
+
+## Step 3 — Transform (a BFF, for free)
+
+Reshape upstream data at the edge with `@computed` fields. They are resolved from
+the record's own attributes on read: no upstream change, no extra storage, and
+they are queryable and selectable like any other field.
+
+```graphql
+# schema.graphql
+salePrice: Float @computed(from: "price - price * (discountPercentage || 0) / 100")
+inStock: Boolean @computed(from: "stock > 0")
+```
+
+```bash
+curl 'localhost:9926/ProductCache/1?select(title,price,salePrice,inStock)'
+# { "title": "...", "price": 9.99, "salePrice": 8.94, "inStock": true }
+```
+
+This is a backend-for-frontend in two lines: the client gets exactly the shape it
+needs. For richer reshaping (renaming, nesting, merging multiple sources) extend
+the table class and override `get()`.
