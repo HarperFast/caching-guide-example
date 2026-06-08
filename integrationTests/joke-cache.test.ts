@@ -79,19 +79,36 @@ suite('JokeCache REST', (ctx: ContextWithHarper) => {
     strictEqual(body1.setup, body2.setup, 'cached response setup should match first response');
   });
 
+  // Reads `${httpURL}/JokeCache/${id}` until Harper serves it from cache with a validator.
+  // The first read for an id is a cache MISS: Harper loads it through the source and the
+  // record is committed to the cache table asynchronously, so the miss response carries no
+  // stored record version and therefore no ETag/Last-Modified. Once the entry is committed,
+  // subsequent reads are cache HITS whose stored version Harper turns into an ETag. We poll
+  // a few times to ride out the background commit before asserting the validator.
+  async function fetchUntilCached(httpURL: string, auth: string, id: string | number) {
+    let last: Response | undefined;
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const res = await fetch(`${httpURL}/JokeCache/${id}`, { headers: { Authorization: auth } });
+      await res.arrayBuffer();
+      const validator = res.headers.get('etag') ?? res.headers.get('last-modified');
+      if (res.status === 200 && validator) {
+        return { res, etag: res.headers.get('etag'), lastModified: res.headers.get('last-modified') };
+      }
+      last = res;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    return { res: last!, etag: null as string | null, lastModified: null as string | null };
+  }
+
   test('GET /JokeCache/:id honors a conditional request with a real 304 cache hit', async () => {
     const { admin, httpURL } = ctx.harper;
     const auth = basicAuth(admin.username, admin.password);
 
-    // Prime the cache and capture the validator emitted by Harper.
-    const primed = await fetch(`${httpURL}/JokeCache/4`, {
-      headers: { Authorization: auth },
-    });
-    await primed.arrayBuffer();
-    strictEqual(primed.status, 200);
-
-    const etag = primed.headers.get('etag');
-    const lastModified = primed.headers.get('last-modified');
+    // Prime the cache, then read again until the entry is committed and Harper emits a
+    // validator for the cache hit. Harper derives the ETag from the cached record's stored
+    // version, so a validator only appears once the read is served from the cache table.
+    const { res, etag, lastModified } = await fetchUntilCached(httpURL, auth, 4);
+    strictEqual(res.status, 200);
     ok(etag || lastModified, 'a cached response should expose an ETag or Last-Modified validator');
 
     const conditionalHeaders: Record<string, string> = { Authorization: auth };
@@ -108,10 +125,9 @@ suite('JokeCache REST', (ctx: ContextWithHarper) => {
     const { admin, httpURL } = ctx.harper;
     const auth = basicAuth(admin.username, admin.password);
 
-    // Populate the cache.
-    const first = await fetch(`${httpURL}/JokeCache/3`, { headers: { Authorization: auth } });
-    await first.arrayBuffer();
-    const etag = first.headers.get('etag');
+    // Populate the cache and obtain the validator Harper emits for the committed entry.
+    const { res: first, etag } = await fetchUntilCached(httpURL, auth, 3);
+    strictEqual(first.status, 200);
 
     // Invalidate the cached entry. This exercises `this.invalidate(target)` in the resource
     // (the v5 eviction contract); `delete()` would throw because the source has no delete().
