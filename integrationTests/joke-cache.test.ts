@@ -67,6 +67,7 @@ suite('JokeCache REST', (ctx: ContextWithHarper) => {
     const res1 = await fetch(`${httpURL}/JokeCache/2`, {
       headers: { Authorization: auth },
     });
+    strictEqual(res1.status, 200, `first fetch for id=2 should return 200, got ${res1.status}`);
     const body1 = await res1.json() as Record<string, unknown>;
 
     // Second call should return the cached copy.
@@ -86,18 +87,16 @@ suite('JokeCache REST', (ctx: ContextWithHarper) => {
   // subsequent reads are cache HITS whose stored version Harper turns into an ETag. We poll
   // a few times to ride out the background commit before asserting the validator.
   async function fetchUntilCached(httpURL: string, auth: string, id: string | number) {
-    let last: Response | undefined;
-    for (let attempt = 0; attempt < 20; attempt++) {
+    for (let attempt = 0; attempt < 60; attempt++) {
       const res = await fetch(`${httpURL}/JokeCache/${id}`, { headers: { Authorization: auth } });
       await res.arrayBuffer();
       const validator = res.headers.get('etag') ?? res.headers.get('last-modified');
       if (res.status === 200 && validator) {
         return { res, etag: res.headers.get('etag'), lastModified: res.headers.get('last-modified') };
       }
-      last = res;
       await new Promise((r) => setTimeout(r, 50));
     }
-    return { res: last!, etag: null as string | null, lastModified: null as string | null };
+    throw new Error(`fetchUntilCached timeout: no validator received for id=${id} after 60 attempts`);
   }
 
   test('GET /JokeCache/:id honors a conditional request with a real 304 cache hit', async () => {
