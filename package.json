@@ -19,7 +19,7 @@
     "test:integration": "harper-integration-test-run \"integrationTests/**/*.test.ts\""
   },
   "dependencies": {
-    "harper": "^5.0.28"
+    "harper": "^5.2.1"
   },
   "devDependencies": {
     "@harperfast/integration-testing": "^0.4.0",
