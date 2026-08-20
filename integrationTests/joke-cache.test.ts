@@ -125,7 +125,7 @@ suite('JokeCache REST', (ctx: ContextWithHarper) => {
     const auth = basicAuth(admin.username, admin.password);
 
     // Populate the cache and obtain the validator Harper emits for the committed entry.
-    const { res: first, etag } = await fetchUntilCached(httpURL, auth, 3);
+    const { res: first, etag, lastModified } = await fetchUntilCached(httpURL, auth, 3);
     strictEqual(first.status, 200);
 
     // Invalidate the cached entry. This exercises `this.invalidate(target)` in the resource
@@ -140,23 +140,27 @@ suite('JokeCache REST', (ctx: ContextWithHarper) => {
 
     // After invalidation the prior validator must no longer produce a 304 — the entry was
     // evicted and is re-fetched from the source on the next read.
-    if (etag) {
-      const afterInvalidate = await fetch(`${httpURL}/JokeCache/3`, {
-        headers: { Authorization: auth, 'If-None-Match': etag },
-      });
-      await afterInvalidate.arrayBuffer();
-      strictEqual(
-        afterInvalidate.status,
-        200,
-        'after invalidation the cache must be re-fetched, not served as a 304',
-      );
-    } else {
-      const afterInvalidate = await fetch(`${httpURL}/JokeCache/3`, {
-        headers: { Authorization: auth },
-      });
-      strictEqual(afterInvalidate.status, 200);
-      const body = await afterInvalidate.json() as Record<string, unknown>;
-      ok(body.setup, 'a re-fetched joke should still have a setup field');
-    }
+    //
+    // Send the conditional request with whichever validator Harper emitted. Branching on
+    // `etag` alone left a Last-Modified-only run asserting nothing about invalidation: an
+    // *unconditional* re-fetch returns 200 whether or not the entry was ever evicted, so
+    // that path passed without exercising the behaviour under test. `fetchUntilCached`
+    // guarantees at least one of the two is present, so there is no third case.
+    const conditionalHeaders: Record<string, string> = { Authorization: auth };
+    if (etag) conditionalHeaders['If-None-Match'] = etag;
+    else conditionalHeaders['If-Modified-Since'] = lastModified!;
+
+    const afterInvalidate = await fetch(`${httpURL}/JokeCache/3`, { headers: conditionalHeaders });
+    // Drain the body before asserting so a 304 (empty body) doesn't leave the socket open.
+    const afterBody = await afterInvalidate.text();
+    strictEqual(
+      afterInvalidate.status,
+      200,
+      `after invalidation the cache must be re-fetched, not served as a 304 (got ${afterInvalidate.status})`,
+    );
+    ok(
+      (JSON.parse(afterBody) as Record<string, unknown>).setup,
+      'a re-fetched joke should still have a setup field',
+    );
   });
 });
