@@ -1,4 +1,4 @@
-type JokeCache @table(expiration: 60) @export {
+type JokeCache @table(expiration: 60) {
 	id: ID @primaryKey
 	setup: String
 	punchline: String

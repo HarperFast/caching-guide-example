@@ -11,13 +11,18 @@
     "url": "git+https://github.com/HarperFast/caching-guide-example.git"
   },
   "license": "Apache-2.0",
-  "author": "HarperDB Inc.",
+  "author": "Harper Inc.",
   "type": "module",
   "main": "resources.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run test:integration",
+    "test:integration": "harper-integration-test-run \"integrationTests/**/*.test.ts\""
   },
   "dependencies": {
     "harper": "^5.2.1"
+  },
+  "devDependencies": {
+    "@harperfast/integration-testing": "^0.4.0",
+    "@types/node": "^22.0.0"
   }
 }
