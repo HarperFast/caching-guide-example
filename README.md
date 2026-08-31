@@ -92,6 +92,7 @@ rating: Float @indexed
 
 ```js
 // resources.js — warm the cache from the upstream collection
+// toProduct() is the same field-projection helper Step 1's ProductAPI.get() uses.
 export class Catalog extends Resource {
 	async post() {
 		const { products } = await (await fetch('https://dummyjson.com/products?limit=0')).json();
@@ -154,6 +155,13 @@ type CategoryCache @table(expiration: 86400) {
 }
 ```
 
+```js
+// resources.js — Catalog.post() also warms the category resource, so products
+// can be joined to it (added to the same handler shown in Step 2)
+const categories = await (await fetch('https://dummyjson.com/products/categories')).json();
+for (const category of categories) await tables.CategoryCache.put(category);
+```
+
 ```bash
 curl -X POST localhost:9926/Catalog/    # warms products *and* categories
 
@@ -196,7 +204,7 @@ ws.onmessage = (e) => console.log('product 5 changed:', JSON.parse(e.data));
 
 ```bash
 # Tell Harper the upstream changed; subscribers are notified, next read is fresh:
-curl -X POST localhost:9926/ProductCache/5 -d '{"action":"invalidate"}'
+curl -X POST localhost:9926/ProductCache/5 -H 'Content-Type: application/json' -d '{"action":"invalidate"}'
 ```
 
 REST for reads, the same model streamed live over WebSocket/MQTT/SSE: a
@@ -238,7 +246,7 @@ export class ProductSearch extends Resource {
 
 ```bash
 curl -X POST localhost:9926/Catalog/        # warms + embeds
-curl -X POST localhost:9926/ProductSearch/ -d '{"query":"something to keep my drink cold"}'
+curl -X POST localhost:9926/ProductSearch/ -H 'Content-Type: application/json' -d '{"query":"something to keep my drink cold"}'
 # -> tumblers, coolers, water bottles, matched by meaning, ranked by $distance
 ```
 
