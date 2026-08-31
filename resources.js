@@ -95,6 +95,22 @@ export class Catalog extends Resource {
 			throw new Error(`Catalog fetch failed (${response.status})`);
 		}
 		const { products } = await response.json();
+		if (!Array.isArray(products)) {
+			throw new Error(`Catalog fetch returned no products array: ${JSON.stringify(products)}`);
+		}
+
+		// Step 4 — warm the category resource so products can be joined to it. Fetched
+		// and validated before either table is written, so a categories failure never
+		// leaves ProductCache populated without its matching CategoryCache entries.
+		const categoriesResponse = await fetch(CATEGORIES_URL);
+		if (!categoriesResponse.ok) {
+			throw new Error(`Categories fetch failed (${categoriesResponse.status})`);
+		}
+		const categories = await categoriesResponse.json();
+		if (!Array.isArray(categories)) {
+			throw new Error(`Categories fetch returned no categories array: ${JSON.stringify(categories)}`);
+		}
+
 		for (const product of products) {
 			const record = toProduct(product);
 			// Step 6 — embed each product so it can be found by meaning, not just
@@ -104,13 +120,6 @@ export class Catalog extends Resource {
 			}
 			await tables.ProductCache.put(record);
 		}
-
-		// Step 4 — warm the category resource so products can be joined to it.
-		const categoriesResponse = await fetch(CATEGORIES_URL);
-		if (!categoriesResponse.ok) {
-			throw new Error(`Categories fetch failed (${categoriesResponse.status})`);
-		}
-		const categories = await categoriesResponse.json();
 		for (const category of categories) {
 			await tables.CategoryCache.put(category);
 		}

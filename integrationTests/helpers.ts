@@ -7,9 +7,9 @@ export function basicAuth(username: string, password: string): string {
 /** Builds an authed fetch bound to a Harper test instance. */
 export function authedFetch(httpURL: string, username: string, password: string) {
 	const auth = basicAuth(username, password);
-	return (path: string, init: RequestInit = {}) =>
-		fetch(`${httpURL}${path}`, {
-			...init,
-			headers: { Authorization: auth, ...(init.headers ?? {}) },
-		});
+	return (path: string, init: RequestInit = {}) => {
+		const headers = new Headers(init.headers);
+		headers.set('Authorization', auth);
+		return fetch(`${httpURL}${path}`, { ...init, headers });
+	};
 }
