@@ -1,7 +1,7 @@
 {
-  "name": "caching-guide-example",
+  "name": "edge-api-cache-template",
   "version": "1.0.0",
-  "description": "This repository is intended for use alongside the Harper Learn [\"Developers / Caching with Harper\"](https//docs.harperdb.io/learn/developers/caching-with-harper) guide.",
+  "description": "Harper template: turn an external JSON API into a low-latency, queryable edge data layer — cache, query, transform, relate, stream, and vector-search.",
   "homepage": "https://github.com/HarperFast/caching-guide-example#readme",
   "bugs": {
     "url": "https://github.com/HarperFast/caching-guide-example/issues"
@@ -11,15 +11,15 @@
     "url": "git+https://github.com/HarperFast/caching-guide-example.git"
   },
   "license": "Apache-2.0",
-  "author": "Harper Inc.",
+  "author": "HarperDB Inc.",
   "type": "module",
   "main": "resources.js",
   "scripts": {
     "test": "npm run test:integration",
-    "test:integration": "harper-integration-test-run \"integrationTests/**/*.test.ts\""
+    "test:integration": "HARPER_INTEGRATION_TEST_INSTALL_SCRIPT=./node_modules/harper/dist/bin/harper.js HARPER_INTEGRATION_TEST_CONCURRENCY=1 harper-integration-test-run --isolation=none \"integrationTests/**/*.test.ts\""
   },
   "dependencies": {
-    "harper": "^5.2.1"
+    "harper": "^5.2.7"
   },
   "devDependencies": {
     "@harperfast/integration-testing": "^0.4.0",

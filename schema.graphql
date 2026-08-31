@@ -1,5 +1,38 @@
-type JokeCache @table(expiration: 60) {
-	id: ID @primaryKey
-	setup: String
-	punchline: String
+# ProductCache mirrors records from an upstream products API. `expiration`
+# sets a 1-hour TTL: Harper serves reads from the cache and lazily refetches
+# an entry from the source once it goes stale.
+#
+# Step 2 adds `@indexed` to the fields we filter and sort on.
+# Step 3 adds `@computed` fields that reshape upstream data at read time.
+# Step 4 adds a `@relationship` so two cached resources can be joined.
+# Step 6 adds an HNSW vector index for semantic search.
+type ProductCache @table(expiration: 3600) {
+	id: Int @primaryKey
+	title: String
+	description: String
+	category: String @indexed
+	brand: String @indexed
+	price: Float @indexed
+	discountPercentage: Float
+	rating: Float @indexed
+	stock: Int
+	tags: [String]
+
+	# Step 3 — derived fields, computed on read.
+	salePrice: Float @computed(from: "price - price * (discountPercentage || 0) / 100")
+	inStock: Boolean @computed(from: "stock > 0")
+
+	# Step 4 — join to the category resource by its slug.
+	categoryInfo: CategoryCache @relationship(from: "category")
+
+	# Step 6 — vector embedding for semantic search. Populated during catalog
+	# warm-up when an embedding provider is configured (see embeddings.js).
+	embedding: [Float] @indexed(type: "HNSW", distance: "cosine")
+}
+
+# A second cached resource. Products reference it by `category` (the slug).
+type CategoryCache @table(expiration: 86400) {
+	slug: ID @primaryKey
+	name: String
+	url: String
 }
