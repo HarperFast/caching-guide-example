@@ -94,7 +94,7 @@ rating: Float @indexed
 // resources.js — warm the cache from the upstream collection
 // toProduct() projects the upstream payload down to the fields we cache.
 function toProduct(p) {
-	return { id: p.id, title: p.title, price: p.price /* ... */ };
+	return { id: p.id, title: p.title, category: p.category, price: p.price, rating: p.rating /* ... */ };
 }
 
 export class Catalog extends Resource {
