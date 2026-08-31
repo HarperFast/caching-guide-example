@@ -20,6 +20,7 @@ const OLLAMA_MODEL = process.env.OLLAMA_EMBEDDING_MODEL || 'nomic-embed-text';
 export async function embed(text) {
 	switch (PROVIDER) {
 		case undefined:
+		case '':
 			return null;
 		case 'openai':
 			return embedOpenAI(text);
@@ -39,18 +40,22 @@ async function embedOpenAI(text) {
 		},
 		body: JSON.stringify({ model: OPENAI_MODEL, input: text }),
 	});
-	if (!res.ok) throw new Error(`OpenAI embeddings failed (${res.status})`);
+	if (!res.ok) throw new Error(`OpenAI embeddings failed (${res.status}): ${await res.text()}`);
 	const json = await res.json();
-	return json.data[0].embedding;
+	const embedding = json.data?.[0]?.embedding;
+	if (!Array.isArray(embedding)) throw new Error(`OpenAI embeddings returned no embedding: ${JSON.stringify(json)}`);
+	return embedding;
 }
 
 async function embedOllama(text) {
-	const res = await fetch(`${OLLAMA_URL}/api/embeddings`, {
+	const res = await fetch(`${OLLAMA_URL}/api/embed`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ model: OLLAMA_MODEL, prompt: text }),
+		body: JSON.stringify({ model: OLLAMA_MODEL, input: text }),
 	});
-	if (!res.ok) throw new Error(`Ollama embeddings failed (${res.status})`);
+	if (!res.ok) throw new Error(`Ollama embeddings failed (${res.status}): ${await res.text()}`);
 	const json = await res.json();
-	return json.embedding;
+	const embedding = json.embeddings?.[0];
+	if (!Array.isArray(embedding)) throw new Error(`Ollama embeddings returned no embedding: ${JSON.stringify(json)}`);
+	return embedding;
 }

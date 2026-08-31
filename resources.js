@@ -106,7 +106,11 @@ export class Catalog extends Resource {
 		}
 
 		// Step 4 — warm the category resource so products can be joined to it.
-		const categories = await (await fetch(CATEGORIES_URL)).json();
+		const categoriesResponse = await fetch(CATEGORIES_URL);
+		if (!categoriesResponse.ok) {
+			throw new Error(`Categories fetch failed (${categoriesResponse.status})`);
+		}
+		const categories = await categoriesResponse.json();
 		for (const category of categories) {
 			await tables.CategoryCache.put(category);
 		}
