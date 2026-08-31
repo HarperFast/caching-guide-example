@@ -18,7 +18,7 @@
     "test": "HARPER_INTEGRATION_TEST_INSTALL_SCRIPT=./node_modules/harper/dist/bin/harper.js HARPER_INTEGRATION_TEST_CONCURRENCY=1 harper-integration-test-run --isolation=none \"integrationTests/**/*.test.ts\""
   },
   "dependencies": {
-    "harper": "^5.2.1"
+    "harper": "^5.2.7"
   },
   "devDependencies": {
     "@harperfast/integration-testing": "^0.4.0",
