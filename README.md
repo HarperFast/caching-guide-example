@@ -92,7 +92,11 @@ rating: Float @indexed
 
 ```js
 // resources.js — warm the cache from the upstream collection
-// toProduct() is the same field-projection helper Step 1's ProductAPI.get() uses.
+// toProduct() projects the upstream payload down to the fields we cache.
+function toProduct(p) {
+	return { id: p.id, title: p.title, price: p.price /* ... */ };
+}
+
 export class Catalog extends Resource {
 	async post() {
 		const { products } = await (await fetch('https://dummyjson.com/products?limit=0')).json();
