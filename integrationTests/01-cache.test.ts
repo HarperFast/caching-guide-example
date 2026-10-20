@@ -9,7 +9,7 @@ import { strictEqual, ok } from 'node:assert/strict';
 import { setupHarperWithFixture, teardownHarper, type ContextWithHarper } from '@harperfast/integration-testing';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { authedFetch } from './helpers.ts';
+import { authedFetch, putCachedProduct } from './helpers.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = resolve(__dirname, '..');
@@ -36,13 +36,14 @@ suite('Step 1 — cache a structured JSON API', (ctx: ContextWithHarper) => {
 		ok(typeof body.price === 'number', 'expected a numeric price');
 	});
 
-	test('GET /ProductCache/:id returns the same record from cache on a second read', async () => {
+	test('a second GET is served from the cache, not refetched', async () => {
 		const { admin, httpURL } = ctx.harper;
 		const api = authedFetch(httpURL, admin.username, admin.password);
 
-		const first = (await (await api('/ProductCache/2')).json()) as Record<string, unknown>;
-		const second = (await (await api('/ProductCache/2')).json()) as Record<string, unknown>;
+		strictEqual((await api('/ProductCache/2')).status, 200);
+		await putCachedProduct(api, { id: 2, title: 'cached copy' });
 
-		strictEqual(second.title, first.title, 'cached read should match the first read');
+		const second = (await (await api('/ProductCache/2')).json()) as Record<string, unknown>;
+		strictEqual(second.title, 'cached copy', 'a fresh cached record should be read without an upstream fetch');
 	});
 });

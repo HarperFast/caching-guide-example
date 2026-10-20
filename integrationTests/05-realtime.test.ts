@@ -10,7 +10,7 @@ import { strictEqual, ok } from 'node:assert/strict';
 import { setupHarperWithFixture, teardownHarper, type ContextWithHarper } from '@harperfast/integration-testing';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { authedFetch } from './helpers.ts';
+import { authedFetch, putCachedProduct } from './helpers.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = resolve(__dirname, '..');
@@ -28,9 +28,8 @@ suite('Step 5 — real-time invalidation', (ctx: ContextWithHarper) => {
 		const { admin, httpURL } = ctx.harper;
 		const api = authedFetch(httpURL, admin.username, admin.password);
 
-		// Cache the record first.
-		const cached = await api('/ProductCache/5');
-		strictEqual(cached.status, 200);
+		strictEqual((await api('/ProductCache/5')).status, 200);
+		await putCachedProduct(api, { id: 5, title: 'stale copy' });
 
 		const res = await api('/ProductCache/5', {
 			method: 'POST',
@@ -46,6 +45,7 @@ suite('Step 5 — real-time invalidation', (ctx: ContextWithHarper) => {
 		strictEqual(after.status, 200);
 		const product = (await after.json()) as Record<string, unknown>;
 		strictEqual(product.id, 5);
+		ok(product.title && product.title !== 'stale copy', `invalidated entry should be refetched, got ${product.title}`);
 	});
 
 	test('an unsupported action is rejected', async () => {

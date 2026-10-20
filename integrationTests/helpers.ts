@@ -15,6 +15,25 @@ export function authedFetch(httpURL: string, username: string, password: string)
 	};
 }
 
+/** Replaces only Harper's cached copy: the read-only source's put() is a no-op, so upstream keeps the real record. */
+export async function putCachedProduct(api: ReturnType<typeof authedFetch>, record: { id: number; [key: string]: unknown }) {
+	const res = await api(`/ProductCache/${record.id}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(record),
+	});
+	ok(res.ok, `PUT /ProductCache/${record.id} failed: ${res.status} ${await res.text()}`);
+}
+
+export async function invalidateProduct(api: ReturnType<typeof authedFetch>, id: number) {
+	const res = await api(`/ProductCache/${id}`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ action: 'invalidate' }),
+	});
+	ok(res.ok, `invalidate failed: ${res.status} ${await res.text()}`);
+}
+
 export async function warmCatalog(api: ReturnType<typeof authedFetch>): Promise<{ loaded: number; categories: number }> {
 	const res = await api('/Catalog/', { method: 'POST' });
 	const body = await res.text();

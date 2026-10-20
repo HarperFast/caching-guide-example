@@ -12,7 +12,7 @@ import { ok, strictEqual } from 'node:assert/strict';
 import { setupHarperWithFixture, teardownHarper, type ContextWithHarper } from '@harperfast/integration-testing';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { authedFetch, warmCatalog } from './helpers.ts';
+import { authedFetch, invalidateProduct, putCachedProduct, warmCatalog } from './helpers.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = resolve(__dirname, '..');
@@ -57,14 +57,14 @@ suite(
 			const { admin, httpURL } = ctx.harper;
 			const api = authedFetch(httpURL, admin.username, admin.password);
 
-			const res = await api('/ProductCache/5', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ action: 'invalidate' }),
-			});
-			ok(res.ok, `invalidate failed: ${res.status}`);
+			await putCachedProduct(api, { id: 5, title: 'stale copy' });
+			await invalidateProduct(api, 5);
 
-			const product = (await (await api('/ProductCache/5?select(id,embedding)')).json()) as { embedding?: number[] };
+			const product = (await (await api('/ProductCache/5?select(id,title,embedding)')).json()) as {
+				title?: string;
+				embedding?: number[];
+			};
+			ok(product.title !== 'stale copy', 'the invalidated product should be refetched');
 			ok(
 				Array.isArray(product.embedding) && product.embedding.length > 0,
 				`refetched product should be re-embedded, got ${JSON.stringify(product).slice(0, 200)}`,
