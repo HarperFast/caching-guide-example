@@ -31,15 +31,25 @@ function toProduct(p) {
 	};
 }
 
+// Step 6 — embed each product so it can be found by meaning, not just keywords.
+// Used on both warm-up and refetch: a refetched record replaces the cached one,
+// so it would otherwise drop out of search. Skipped when no provider is configured.
+async function withEmbedding(record) {
+	if (EMBEDDINGS_ENABLED) {
+		record.embedding = await embed(`${record.title}. ${record.description}`);
+	}
+	return record;
+}
+
 class ProductAPI extends Resource {
 	async get() {
 		const id = this.getId();
-		const response = await fetch(`${UPSTREAM}/${id}`);
+		const response = await fetch(`${UPSTREAM}/${encodeURIComponent(id)}`);
 		if (!response.ok) {
 			if (response.status === 404) return null;
 			throw new Error(`Upstream fetch failed (${response.status}) for product ${id}`);
 		}
-		return toProduct(await response.json());
+		return withEmbedding(toProduct(await response.json()));
 	}
 
 	// The upstream is read-only, so write-through is a no-op: warming the cache
@@ -112,13 +122,7 @@ export class Catalog extends Resource {
 		}
 
 		for (const product of products) {
-			const record = toProduct(product);
-			// Step 6 — embed each product so it can be found by meaning, not just
-			// keywords. Skipped automatically when no provider is configured.
-			if (EMBEDDINGS_ENABLED) {
-				record.embedding = await embed(`${record.title}. ${record.description}`);
-			}
-			await tables.ProductCache.put(record);
+			await tables.ProductCache.put(await withEmbedding(toProduct(product)));
 		}
 		for (const category of categories) {
 			await tables.CategoryCache.put(category);

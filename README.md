@@ -58,7 +58,7 @@ type ProductCache @table(expiration: 3600) {
 // resources.js
 class ProductAPI extends Resource {
 	async get() {
-		const response = await fetch(`https://dummyjson.com/products/${this.getId()}`);
+		const response = await fetch(`https://dummyjson.com/products/${encodeURIComponent(this.getId())}`);
 		return response.json();
 	}
 }
@@ -169,8 +169,8 @@ for (const category of categories) await tables.CategoryCache.put(category);
 ```bash
 curl -X POST localhost:9926/Catalog/    # warms products *and* categories
 
-# Embed the related category (braces select the related fields):
-curl 'localhost:9926/ProductCache/1?select(title,categoryInfo{slug,name})'
+# Embed the related category (braces select the related fields; -g stops curl expanding them):
+curl -g 'localhost:9926/ProductCache/1?select(title,categoryInfo{slug,name})'
 
 # Filter products by a related-category field (a join):
 curl 'localhost:9926/ProductCache/?categoryInfo.slug=beauty&limit(5)'
@@ -219,8 +219,8 @@ combination very few platforms offer from a single resource definition.
 ## Step 6 — Vector (semantic search over your cache)
 
 The same cached records, now searchable by meaning. Add an HNSW vector index,
-embed each product during warm-up, and search with a natural-language query, with
-no separate vector database.
+embed each product as it is cached (on warm-up and on refetch), and search with a
+natural-language query, with no separate vector database.
 
 This step needs an embedding provider. Copy `.env.example` to `.env` and set one:
 

@@ -1,6 +1,7 @@
 /** Shared helpers for the integration tests. */
+import { ok } from 'node:assert/strict';
 
-export function basicAuth(username: string, password: string): string {
+function basicAuth(username: string, password: string): string {
 	return 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64');
 }
 
@@ -12,4 +13,11 @@ export function authedFetch(httpURL: string, username: string, password: string)
 		headers.set('Authorization', auth);
 		return fetch(`${httpURL}${path}`, { ...init, headers });
 	};
+}
+
+export async function warmCatalog(api: ReturnType<typeof authedFetch>): Promise<{ loaded: number; categories: number }> {
+	const res = await api('/Catalog/', { method: 'POST' });
+	const body = await res.text();
+	ok(res.ok, `catalog warm-up failed: ${res.status} ${body}`);
+	return JSON.parse(body);
 }

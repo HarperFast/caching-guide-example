@@ -9,7 +9,7 @@ import { strictEqual, ok } from 'node:assert/strict';
 import { setupHarperWithFixture, teardownHarper, type ContextWithHarper } from '@harperfast/integration-testing';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { authedFetch } from './helpers.ts';
+import { authedFetch, warmCatalog } from './helpers.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = resolve(__dirname, '..');
@@ -18,7 +18,7 @@ suite('Step 3 — transform with @computed', (ctx: ContextWithHarper) => {
 	before(async () => {
 		await setupHarperWithFixture(ctx, fixtureDir);
 		const { admin, httpURL } = ctx.harper;
-		await authedFetch(httpURL, admin.username, admin.password)('/Catalog/', { method: 'POST' });
+		await warmCatalog(authedFetch(httpURL, admin.username, admin.password));
 	});
 
 	after(async () => {
