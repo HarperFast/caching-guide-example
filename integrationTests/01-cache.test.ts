@@ -41,6 +41,10 @@ suite('Step 1 — cache a structured JSON API', (ctx: ContextWithHarper) => {
 		const api = authedFetch(httpURL, admin.username, admin.password);
 
 		strictEqual((await api('/ProductCache/2')).status, 200);
+		// A collection query reads only stored rows, so this shows the miss was stored.
+		const stored = (await (await api('/ProductCache/?id=2&select(id)')).json()) as Array<{ id: number }>;
+		strictEqual(stored.length, 1, 'the read-through result should be stored in ProductCache');
+
 		await putCachedProduct(api, { id: 2, title: 'cached copy' });
 
 		const second = (await (await api('/ProductCache/2')).json()) as Record<string, unknown>;
