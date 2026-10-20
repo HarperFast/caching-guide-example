@@ -1,3 +1,5 @@
+loadEnv:
+  files: .env
 graphqlSchema:
   files: 'schema.graphql'
 rest: true

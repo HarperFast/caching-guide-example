@@ -1,0 +1,59 @@
+/**
+ * Step 1 — Cache a structured JSON API.
+ *
+ * A GET for an uncached id triggers a single upstream fetch and stores the
+ * structured result in ProductCache; subsequent GETs are served from the cache.
+ */
+import { suite, test, before, after } from 'node:test';
+import { strictEqual, ok } from 'node:assert/strict';
+import { setupHarperWithFixture, teardownHarper, type ContextWithHarper } from '@harperfast/integration-testing';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { setTimeout as delay } from 'node:timers/promises';
+import { authedFetch, putCachedProduct } from './helpers.ts';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const fixtureDir = resolve(__dirname, '..');
+
+suite('Step 1 — cache a structured JSON API', (ctx: ContextWithHarper) => {
+	before(async () => {
+		await setupHarperWithFixture(ctx, fixtureDir);
+	});
+
+	after(async () => {
+		await teardownHarper(ctx);
+	});
+
+	test('GET /ProductCache/:id fetches and caches a product from the upstream API', async () => {
+		const { admin, httpURL } = ctx.harper;
+		const api = authedFetch(httpURL, admin.username, admin.password);
+
+		const res = await api('/ProductCache/1');
+		strictEqual(res.status, 200);
+
+		const body = (await res.json()) as Record<string, unknown>;
+		strictEqual(body.id, 1);
+		ok(body.title, `expected a title, got: ${JSON.stringify(body)}`);
+		ok(typeof body.price === 'number', 'expected a numeric price');
+	});
+
+	test('a second GET is served from the cache, not refetched', async () => {
+		const { admin, httpURL } = ctx.harper;
+		const api = authedFetch(httpURL, admin.username, admin.password);
+
+		strictEqual((await api('/ProductCache/2')).status, 200);
+		// A collection query reads only stored rows, so this shows the miss was stored. Harper
+		// answers a source read before the cache write commits, hence the bounded poll.
+		let stored: unknown[] = [];
+		for (let attempt = 0; attempt < 60 && stored.length === 0; attempt++) {
+			if (attempt > 0) await delay(50);
+			stored = (await (await api('/ProductCache/?id=2&select(id)')).json()) as unknown[];
+		}
+		strictEqual(stored.length, 1, 'the read-through result should be stored in ProductCache');
+
+		await putCachedProduct(api, { id: 2, title: 'cached copy' });
+
+		const second = (await (await api('/ProductCache/2')).json()) as Record<string, unknown>;
+		strictEqual(second.title, 'cached copy', 'a fresh cached record should be read without an upstream fetch');
+	});
+});
