@@ -1,14 +1,14 @@
 /**
  * Step 6 — Vector (semantic search).
  *
- * Requires an embedding provider, so the suite is skipped unless EMBEDDING_PROVIDER
+ * The search suite needs an embedding provider, so it is skipped unless EMBEDDING_PROVIDER
  * is set. With one configured, warming the catalog also embeds each product, and
  * ProductSearch finds items by meaning rather than keywords.
  *
  *   EMBEDDING_PROVIDER=ollama npm test
  */
 import { suite, test, before, after } from 'node:test';
-import { ok } from 'node:assert/strict';
+import { ok, strictEqual } from 'node:assert/strict';
 import { setupHarperWithFixture, teardownHarper, type ContextWithHarper } from '@harperfast/integration-testing';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -72,3 +72,23 @@ suite(
 		});
 	},
 );
+
+suite('Step 6 — an embedding outage does not fail cache reads', (ctx: ContextWithHarper) => {
+	before(async () => {
+		// Nothing listens on port 9 (discard), so every embedding request is refused.
+		await setupHarperWithFixture(ctx, fixtureDir, {
+			env: { EMBEDDING_PROVIDER: 'ollama', OLLAMA_URL: 'http://127.0.0.1:9' },
+		});
+	});
+
+	after(async () => {
+		await teardownHarper(ctx);
+	});
+
+	test('a read-through miss still returns the product', async () => {
+		const { admin, httpURL } = ctx.harper;
+		const res = await authedFetch(httpURL, admin.username, admin.password)('/ProductCache/1');
+		strictEqual(res.status, 200);
+		strictEqual(((await res.json()) as { id: number }).id, 1);
+	});
+});

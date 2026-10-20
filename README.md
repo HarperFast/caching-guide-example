@@ -58,7 +58,7 @@ type ProductCache @table(expiration: 3600) {
 // resources.js
 class ProductAPI extends Resource {
 	async get() {
-		const response = await fetch(`https://dummyjson.com/products/${encodeURIComponent(this.getId())}`);
+		const response = await fetch(`https://dummyjson.com/products/${this.getId()}`);
 		return response.json();
 	}
 }

@@ -1,4 +1,4 @@
-import { Resource, tables } from 'harper';
+import { Resource, logger, tables } from 'harper';
 import { embed, EMBEDDINGS_ENABLED } from './embeddings.js';
 
 /**
@@ -44,12 +44,21 @@ async function withEmbedding(record) {
 class ProductAPI extends Resource {
 	async get() {
 		const id = this.getId();
-		const response = await fetch(`${UPSTREAM}/${encodeURIComponent(id)}`);
+		if (!/^\d+$/.test(String(id))) return null;
+		const response = await fetch(`${UPSTREAM}/${id}`);
 		if (!response.ok) {
 			if (response.status === 404) return null;
 			throw new Error(`Upstream fetch failed (${response.status}) for product ${id}`);
 		}
-		return withEmbedding(toProduct(await response.json()));
+		const product = toProduct(await response.json());
+		try {
+			return await withEmbedding(product);
+		} catch (error) {
+			// An embedding outage must not fail the cache read; the product is just
+			// unsearchable until it is re-embedded.
+			logger.warn(`Embedding failed for product ${id}: ${error.message}`);
+			return product;
+		}
 	}
 
 	// The upstream is read-only, so write-through is a no-op: warming the cache
