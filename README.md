@@ -58,6 +58,7 @@ type ProductCache @table(expiration: 3600) {
 // resources.js
 class ProductAPI extends Resource {
 	async get() {
+		if (!/^\d+$/.test(String(this.getId()))) return null; // keep the id inside /products/
 		const response = await fetch(`https://dummyjson.com/products/${this.getId()}`);
 		return response.json();
 	}

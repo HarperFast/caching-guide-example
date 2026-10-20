@@ -75,7 +75,7 @@ suite(
 
 suite('Step 6 — an embedding outage does not fail cache reads', (ctx: ContextWithHarper) => {
 	before(async () => {
-		// Nothing listens on port 9 (discard), so every embedding request is refused.
+		// Port 9 is on fetch's blocked-port list, so every embedding request rejects at once.
 		await setupHarperWithFixture(ctx, fixtureDir, {
 			env: { EMBEDDING_PROVIDER: 'ollama', OLLAMA_URL: 'http://127.0.0.1:9' },
 		});
