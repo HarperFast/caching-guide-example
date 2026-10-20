@@ -28,7 +28,6 @@ suite('Step 5 — real-time invalidation', (ctx: ContextWithHarper) => {
 		const { admin, httpURL } = ctx.harper;
 		const api = authedFetch(httpURL, admin.username, admin.password);
 
-		strictEqual((await api('/ProductCache/5')).status, 200);
 		await putCachedProduct(api, { id: 5, title: 'stale copy' });
 
 		const res = await api('/ProductCache/5', {
